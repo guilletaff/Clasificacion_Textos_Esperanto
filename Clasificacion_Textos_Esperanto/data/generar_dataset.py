@@ -73,7 +73,11 @@ def construir_dataset():
         
         for titulo in articulos:
             try:
-                page = WikiPage.look_up(titulo, language="eo")
+                # any_language=False: no aceptar artículos de otros idiomas si el título
+                # no existe en esperanto (evita que se cuele texto en español)
+                page = WikiPage.look_up(titulo, language="eo", any_language=False)
+                if getattr(page, "language", "eo") != "eo":
+                    raise ValueError(f"solo existe en '{page.language}', no en esperanto")
                 texto_completo = page.full_text()
                 
                 # Segmentar por párrafos
