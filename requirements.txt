@@ -1,0 +1,17 @@
+# Librerías necesarias para ejecutar notebooks/clasificacion_esperanto.ipynb
+# Instalación: pip install -r requirements.txt
+# Versiones fijadas para que los resultados sean reproducibles.
+
+# Descarga de datos y web scraping
+requests==2.34.2
+beautifulsoup4==4.15.0
+
+# Datos, aprendizaje automático y gráficas
+pandas==3.1.1
+numpy==2.5.3
+scikit-learn==1.9.1
+matplotlib==3.11.2
+
+# Librería del repositorio guía: solo se usa WikiPage para descargar artículos de Wikipedia.
+# Fijada a un commit concreto porque la librería sigue en desarrollo.
+esperantilo @ git+https://github.com/jparisu/nlp-esperantilo.git@505922d20113603aae2a17b9d668cc9d021d7fce
