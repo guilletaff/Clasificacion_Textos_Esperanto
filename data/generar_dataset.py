@@ -1,54 +1,32 @@
 import os
 import re
+import ast
+import json
 import pandas as pd
 from esperantilo import WikiPage
 
-# 1. Definición de temáticas y artículos clave en Esperanto
-# CATEGORIAS: Variable de tipo diccionario (dict) que define las clases objetivo y sus fuentes de Wikipedia.
-# { ... }: Sintaxis de diccionario en Python, estructurado como pares de 'clave: valor'.
-CATEGORIAS = {
-    # "fervojo": 'Ferrocarril'.
-    "fervojo": [
-        "Fervojo",            # 'Ferrocarril'
-        "Lokomotivo",         # 'Locomotora' 
-        "Metroo",             # 'Metro' 
-        "Tramo",              # 'Tranvía' 
-        "Rapidtrajno",        # 'Tren de alta velocidad' 
-        "Vagono",             # 'Vagón' 
-        "Fervoja stacio",     # 'Estación de ferrocarril'.
-        "Elektra lokomotivo", # 'Locomotora eléctrica'.
-        "Dizel-lokomotivo",   # 'Locomotora diésel'.
-        "Maglevo"             # 'Tren de levitación magnética' 
-    ],
-    
-    # "automobilo": 'automóvil'
-    "automobilo": [
-        "Aŭtomobilo",         # 'Automóvil'
-        "Kamiono",            # 'Camión' 
-        "Aŭtobuso",           # 'Autobús' 
-        "Elektra aŭtomobilo", # 'Automóvil eléctrico'.
-        "Motociklo",          # 'Motocicleta' 
-        "Eksplodmotoro",      # 'Motor de combustión interna' 
-        "Taksio",             # 'Taxi' 
-        "Aŭtovojo",           # 'Autopista' / 'autovía' 
-        "Sportaŭto",          # 'Coche deportivo'
-        "Karoserio"           # 'Carrocería'
-    ],
-    
-    # "aviado": aviación
-    "aviado": [
-        "Aviadilo",           # 'Avión' 
-        "Aviado",             # 'Aviación' 
-        "Flughaveno",         # 'Aeropuerto'
-        "Helikoptero",        # 'Helicóptero' 
-        "Jetmotoro",          # 'Motor a reacción' 
-        "Komerca aviado",     # 'Aviación comercial' 
-        "Boeing 747",         
-        "Supersona aviadilo", # 'Avión supersónico' 
-        "Flugkompanio",       # 'Aerolínea' 
-        "Aeronaŭtiko"         # 'Aeronáutica' 
-    ]
-}
+# 1. Temáticas y artículos de Wikipedia
+# La lista CATEGORIAS no se repite aquí: se lee del cuaderno, que es donde está definida, para que
+# los dos generen siempre el dataset con los mismos artículos.
+RUTA_CUADERNO = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "..", "notebooks", "clasificacion_esperanto.ipynb")
+
+
+def leer_categorias_del_cuaderno(ruta=RUTA_CUADERNO):
+    """Busca en el cuaderno la celda 'CATEGORIAS = {...}' y devuelve ese diccionario.
+
+    Se usa ast.literal_eval, que solo interpreta el diccionario y no ejecuta código del cuaderno.
+    """
+    with open(ruta, encoding="utf-8") as f:
+        cuaderno = json.load(f)
+    for celda in cuaderno["cells"]:
+        codigo = "".join(celda["source"])
+        if celda["cell_type"] == "code" and codigo.startswith("CATEGORIAS = "):
+            return ast.literal_eval(codigo.split("=", 1)[1].strip())
+    raise ValueError(f"No se encontró CATEGORIAS en {ruta}")
+
+
+CATEGORIAS = leer_categorias_del_cuaderno()
 
 def limpiar_parrafo(parrafo: str) -> str:
     """
