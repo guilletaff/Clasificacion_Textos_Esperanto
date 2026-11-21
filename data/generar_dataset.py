@@ -1,9 +1,11 @@
 """Genera data/dataset_esperanto.csv descargando los artículos de Wikipedia en esperanto.
 
-Hace lo mismo que el cuaderno con GENERAR_DATASET = True, pero sin abrir el cuaderno.
-No repite código: la lista CATEGORIAS y las funciones descargar_articulo, limpiar_parrafo y
-construir_dataset se leen de notebooks/clasificacion_esperanto.ipynb, para que los dos generen
-siempre el mismo CSV.
+Hace lo mismo que el cuaderno con GENERAR_DATASET = True, pero sin abrir el cuaderno: descarga,
+limpia y filtra los párrafos, y guarda el CSV ya filtrado (contrato de datos: text;class, sin
+enlaces, referencias ni bibliografía).
+
+No repite código: la lista CATEGORIAS y las funciones de descarga, limpieza y filtrado se leen de
+notebooks/clasificacion_esperanto.ipynb, para que los dos generen siempre el mismo CSV.
 
 Uso: python data/generar_dataset.py
 """
@@ -19,7 +21,12 @@ RUTA_CUADERNO = os.path.join(CARPETA, "..", "notebooks", "clasificacion_esperant
 RUTA_SALIDA = os.path.join(CARPETA, "dataset_esperanto.csv")
 
 # Lo que se toma del cuaderno
-NOMBRES = ["CATEGORIAS", "descargar_articulo", "limpiar_parrafo", "construir_dataset"]
+NOMBRES = [
+    "CATEGORIAS",                                                       # artículos
+    "descargar_articulo", "limpiar_parrafo", "construir_dataset",        # descarga y limpieza
+    "LONGITUD_MINIMA", "PALABRAS_OTROS_IDIOMAS", "VERBO_CONJUGADO",      # filtrado del ruido
+    "motivo_descarte", "filtrar_dataset",
+]
 
 
 def leer_del_cuaderno(ruta=RUTA_CUADERNO):
@@ -56,12 +63,17 @@ def leer_del_cuaderno(ruta=RUTA_CUADERNO):
 if __name__ == "__main__":
     cuaderno = leer_del_cuaderno()
     print("Iniciando la recopilación de artículos de Wikipedia en Esperanto...\n")
-    df = cuaderno["construir_dataset"]()
+    df_bruto = cuaderno["construir_dataset"]()
 
-    print("\nDistribución de párrafos por categoría:")
+    faltan = set(cuaderno["CATEGORIAS"]) - set(df_bruto["class"])
+    if faltan:
+        raise RuntimeError(f"No se pudo descargar ningún artículo de: {', '.join(sorted(faltan))}. "
+                           "No se sobrescribe el CSV.")
+
+    print(f"\nPárrafos antes de filtrar: {len(df_bruto)}")
+    df = cuaderno["filtrar_dataset"](df_bruto)
+    print(f"Párrafos después de filtrar: {len(df)}")
     print(df["class"].value_counts())
-    print(f"\nTotal de párrafos: {len(df)}")
 
-    # Se guarda sin filtrar, igual que el cuaderno: el filtro de ruido se aplica al cargarlo
     df.to_csv(RUTA_SALIDA, sep=";", index=False, encoding="utf-8")
     print(f"\nDataset guardado en: {RUTA_SALIDA}")
