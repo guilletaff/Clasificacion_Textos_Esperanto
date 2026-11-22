@@ -1,110 +1,79 @@
+"""Genera data/dataset_esperanto.csv descargando los artículos de Wikipedia en esperanto.
+
+Hace lo mismo que el cuaderno con GENERAR_DATASET = True, pero sin abrir el cuaderno: descarga,
+limpia y filtra los párrafos, y guarda el CSV ya filtrado (contrato de datos: text;class, sin
+enlaces, referencias ni bibliografía).
+
+No repite código: la lista CATEGORIAS y las funciones de descarga, limpieza y filtrado se leen de
+notebooks/clasificacion_esperanto.ipynb, para que los dos generen siempre el mismo CSV.
+
+Uso: python data/generar_dataset.py
+"""
 import os
 import re
+import ast
+import json
+import time
 import pandas as pd
-from esperantilo import WikiPage
 
-# 1. Definición de temáticas y artículos clave en Esperanto
-# CATEGORIAS: Variable de tipo diccionario (dict) que define las clases objetivo y sus fuentes de Wikipedia.
-# { ... }: Sintaxis de diccionario en Python, estructurado como pares de 'clave: valor'.
-CATEGORIAS = {
-    # "fervojo": 'Ferrocarril'.
-    "fervojo": [
-        "Fervojo",            # 'Ferrocarril'
-        "Lokomotivo",         # 'Locomotora' 
-        "Metroo",             # 'Metro' 
-        "Tramo",              # 'Tranvía' 
-        "Rapidtrajno",        # 'Tren de alta velocidad' 
-        "Vagono",             # 'Vagón' 
-        "Fervoja stacio",     # 'Estación de ferrocarril'.
-        "Elektra lokomotivo", # 'Locomotora eléctrica'.
-        "Dizel-lokomotivo",   # 'Locomotora diésel'.
-        "Maglevo"             # 'Tren de levitación magnética' 
-    ],
-    
-    # "automobilo": 'automóvil'
-    "automobilo": [
-        "Aŭtomobilo",         # 'Automóvil'
-        "Kamiono",            # 'Camión' 
-        "Aŭtobuso",           # 'Autobús' 
-        "Elektra aŭtomobilo", # 'Automóvil eléctrico'.
-        "Motociklo",          # 'Motocicleta' 
-        "Eksplodmotoro",      # 'Motor de combustión interna' 
-        "Taksio",             # 'Taxi' 
-        "Aŭtovojo",           # 'Autopista' / 'autovía' 
-        "Sportaŭto",          # 'Coche deportivo'
-        "Karoserio"           # 'Carrocería'
-    ],
-    
-    # "aviado": aviación
-    "aviado": [
-        "Aviadilo",           # 'Avión' 
-        "Aviado",             # 'Aviación' 
-        "Flughaveno",         # 'Aeropuerto'
-        "Helikoptero",        # 'Helicóptero' 
-        "Jetmotoro",          # 'Motor a reacción' 
-        "Komerca aviado",     # 'Aviación comercial' 
-        "Boeing 747",         
-        "Supersona aviadilo", # 'Avión supersónico' 
-        "Flugkompanio",       # 'Aerolínea' 
-        "Aeronaŭtiko"         # 'Aeronáutica' 
-    ]
-}
+CARPETA = os.path.dirname(os.path.abspath(__file__))
+RUTA_CUADERNO = os.path.join(CARPETA, "..", "notebooks", "clasificacion_esperanto.ipynb")
+RUTA_SALIDA = os.path.join(CARPETA, "dataset_esperanto.csv")
 
-def limpiar_parrafo(parrafo: str) -> str:
+# Lo que se toma del cuaderno
+NOMBRES = [
+    "CATEGORIAS",                                                       # artículos
+    "descargar_articulo", "limpiar_parrafo", "construir_dataset",        # descarga y limpieza
+    "LONGITUD_MINIMA", "PALABRAS_OTROS_IDIOMAS", "VERBO_CONJUGADO",      # filtrado del ruido
+    "motivo_descarte", "filtrar_dataset",
+]
+
+
+def leer_del_cuaderno(ruta=RUTA_CUADERNO):
+    """Busca en el cuaderno las definiciones de NOMBRES y las devuelve en un diccionario.
+
+    De cada celda solo se ejecutan las definiciones (def y asignaciones de esos nombres), no el resto
+    del código, para no lanzar descargas ni gráficos al leerlo.
     """
-    Limpia el texto conforme al contrato de datos:
-    - Elimina saltos de línea y espacios redundantes.
-    - Reemplaza el carácter ';' para evitar corromper el CSV.
-    - Elimina cabeceras de sección tipo == Historio ==.
-    """
-    texto = re.sub(r"==+.*?==+", "", parrafo)
-    texto = texto.replace(";", ",")
-    texto = re.sub(r"\s+", " ", texto).strip()
-    return texto
+    with open(ruta, encoding="utf-8") as f:
+        cuaderno = json.load(f)
 
-def construir_dataset():
-    filas = []
-    
-    print("Iniciando la recopilación de artículos de Wikipedia en Esperanto...\n")
-    
-    for categoria, articulos in CATEGORIAS.items():
-        print(f"--- Procesando categoría: {categoria} ---")
-        parrafos_clase = 0
-        
-        for titulo in articulos:
-            try:
-                # any_language=False: no aceptar artículos de otros idiomas si el título
-                # no existe en esperanto (evita que se cuele texto en español)
-                page = WikiPage.look_up(titulo, language="eo", any_language=False)
-                if getattr(page, "language", "eo") != "eo":
-                    raise ValueError(f"solo existe en '{page.language}', no en esperanto")
-                texto_completo = page.full_text()
-                
-                # Segmentar por párrafos
-                parrafos = texto_completo.split("\n")
-                
-                for p in parrafos:
-                    p_limpio = limpiar_parrafo(p)
-                    # Filtramos fragmentos muy cortos (< 40 caracteres)
-                    if len(p_limpio) >= 40:
-                        filas.append({"text": p_limpio, "class": categoria})
-                        parrafos_clase += 1
-                        
-                print(f"  [OK] {titulo} - párrafos acumulados en la clase: {parrafos_clase}")
-            except Exception as e:
-                print(f"  [Error] No se pudo obtener '{titulo}': {e}")
-        print()
+    espacio = {"re": re, "time": time, "pd": pd}
+    for celda in cuaderno["cells"]:
+        if celda["cell_type"] != "code":
+            continue
+        codigo = "".join(celda["source"])
+        try:
+            arbol = ast.parse(codigo)
+        except SyntaxError:        # celdas con %pip u otras órdenes de Jupyter
+            continue
+        for nodo in arbol.body:
+            es_funcion = isinstance(nodo, ast.FunctionDef) and nodo.name in NOMBRES
+            es_variable = (isinstance(nodo, ast.Assign) and len(nodo.targets) == 1
+                           and getattr(nodo.targets[0], "id", None) in NOMBRES)
+            if es_funcion or es_variable:
+                exec(compile(ast.Module([nodo], []), ruta, "exec"), espacio)
 
-    df = pd.DataFrame(filas)
-    
-    print("Distribución de párrafos por categoría:")
-    print(df["class"].value_counts())
-    print(f"\nTotal de párrafos recopilados: {len(df)}")
-    
-    carpeta_actual = os.path.dirname(os.path.abspath(__file__))
-    
-    ruta_salida = os.path.join(carpeta_actual, "dataset_esperanto.csv")
-    df.to_csv(ruta_salida, sep=";", index=False, encoding="utf-8")
-    print(f"\nDataset generado correctamente en: {ruta_salida}")
+    faltan = [n for n in NOMBRES if n not in espacio]
+    if faltan:
+        raise ValueError(f"No se encontró {', '.join(faltan)} en {ruta}")
+    return espacio
+
+
 if __name__ == "__main__":
-    construir_dataset()
+    cuaderno = leer_del_cuaderno()
+    print("Iniciando la recopilación de artículos de Wikipedia en Esperanto...\n")
+    df_bruto = cuaderno["construir_dataset"]()
+
+    faltan = set(cuaderno["CATEGORIAS"]) - set(df_bruto["class"])
+    if faltan:
+        raise RuntimeError(f"No se pudo descargar ningún artículo de: {', '.join(sorted(faltan))}. "
+                           "No se sobrescribe el CSV.")
+
+    print(f"\nPárrafos antes de filtrar: {len(df_bruto)}")
+    df = cuaderno["filtrar_dataset"](df_bruto)
+    print(f"Párrafos después de filtrar: {len(df)}")
+    print(df["class"].value_counts())
+
+    df.to_csv(RUTA_SALIDA, sep=";", index=False, encoding="utf-8")
+    print(f"\nDataset guardado en: {RUTA_SALIDA}")

@@ -1,16 +1,20 @@
 # Librerías necesarias para ejecutar notebooks/clasificacion_esperanto.ipynb
 # Instalación: pip install -r requirements.txt
-# Versiones fijadas para que los resultados sean reproducibles.
+#
+# Se indican versiones MÍNIMAS (>=) y no exactas (==): Colab ya trae instaladas casi todas y
+# depende de sus propias versiones (p. ej. google-colab exige pandas 2.2.x). Con '==' pip las
+# actualizaría y rompería paquetes de Colab. Con '>=' solo se instala lo que falta.
+# Las versiones con las que se ejecutó el cuaderno se imprimen en la celda de configuración.
 
 # Descarga de datos y web scraping
-requests==2.34.2
-beautifulsoup4==4.15.0
+requests>=2.31
+beautifulsoup4>=4.12
 
 # Datos, aprendizaje automático y gráficas
-pandas==3.1.1
-numpy==2.5.3
-scikit-learn==1.9.1
-matplotlib==3.11.2
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+matplotlib>=3.8
 
 # Librería del repositorio guía: solo se usa WikiPage para descargar artículos de Wikipedia.
 # Fijada a un commit concreto porque la librería sigue en desarrollo.
