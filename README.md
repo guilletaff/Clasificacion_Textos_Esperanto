@@ -271,5 +271,9 @@ La frase del coche eléctrico es la más dudosa (un 23 % para `fervojo`), probab
 
 ## Créditos
 
-- Librería [`nlp-esperantilo`](https://github.com/jparisu/nlp-esperantilo), el repositorio guía de la asignatura. Se usa para descargar artículos de Wikipedia y como fuente de la lista de stop-words.
+- Librería [`nlp-esperantilo`](https://github.com/jparisu/nlp-esperantilo)(Apache License 2.0), el repositorio guía de la asignatura. Se usa para descargar artículos de Wikipedia y como fuente de la lista de stop-words.
 - Textos de la [Wikipedia en esperanto](https://eo.wikipedia.org).
+
+## Licencia
+
+- El código está bajo licencia MIT. Los textos del dataset proceden de la Wikipedia en esperanto y se distribuyen bajo CC BY-SA 4.0.
