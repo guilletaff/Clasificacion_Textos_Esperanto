@@ -87,7 +87,7 @@ El modelo de NLP **no usa librerías de NLP** (ni spaCy, ni NLTK, ni Stanza): es
 Al principio del cuaderno están los parámetros principales:
 
 - `GENERAR_DATASET = False` (por defecto): se carga el dataset ya generado. Es más rápido y siempre da el mismo resultado.
-- `GENERAR_DATASET = True`: se vuelven a descargar los 76 artículos de la Wikipedia (unos dos minutos) y se guarda el nuevo CSV en `data/`.
+- `GENERAR_DATASET = True`: se vuelven a descargar los 76 artículos de la Wikipedia (un par de minutos) y se guarda el nuevo CSV en `data/`.
 - `SEMILLA = 42`: semilla aleatoria fija para que los resultados sean reproducibles.
 
 El dataset también se puede regenerar fuera del cuaderno:
@@ -187,7 +187,16 @@ Aplicado a todo el dataset (51.154 tokens), solo el 1,3 % de las palabras quedan
 | Bag of Words | Regresión Logística | 0,878 | 0,025 |
 | Bag of Words | SVM lineal | 0,866 | 0,041 |
 
-Las cuatro mejores combinaciones quedan entre 0,91 y 0,92, con diferencias menores que la desviación entre particiones, así que el F1 no basta para decidir. Se descarta Bag of Words con Naive Bayes, aunque tenga la media más alta, porque en textos largos (como las páginas web) sus probabilidades se saturan a 1,0 aunque parte del texto sea de otro tema. Entre los modelos con TF-IDF se elige la Regresión Logística (class_weight="balanced"): da probabilidades útiles también en textos largos y sus coeficientes indican qué lemas pesan en cada clase.
+Las cuatro mejores combinaciones quedan entre 0,91 y 0,92, con diferencias menores que la desviación entre particiones, así que el F1 no basta para decidir. Se descarta Bag of Words con Naive Bayes, aunque tenga la media más alta, porque en textos largos (como las páginas web) sus probabilidades se saturan a 1,0 aunque parte del texto sea de otro tema: Naive Bayes suma la evidencia de cada palabra como si fueran independientes, así que con cientos de palabras la probabilidad se va al extremo. Entre los modelos con TF-IDF se elige la Regresión Logística (class_weight="balanced"): da probabilidades útiles también en textos largos y sus coeficientes indican qué lemas pesan en cada clase. TF-IDF con Naive Bayes rinde prácticamente igual; la elección es por interpretabilidad.
+
+El cuaderno lo comprueba con textos largos hechos con párrafos del test (24 de una clase y 8 de las otras, 5 textos por clase):
+
+| | Párrafos sueltos (media) | Textos largos (media) | Textos largos (mínimo) | Páginas web |
+|---|---|---|---|---|
+| Bag of Words + Naive Bayes | 0,937 | 1,000 | 1,000 | 1,000 en las tres |
+| TF-IDF + Regresión Logística | 0,659 | 0,944 | 0,838 | entre 0,67 y 0,91 |
+
+Los dos modelos aciertan los 15 textos largos, pero Naive Bayes da siempre una probabilidad de 1,000, aunque una cuarta parte del texto sea de otra clase.
 
 **Resultados en test:**
 
@@ -222,7 +231,7 @@ Lemas con más peso en cada clase:
 | *La piloto anoncis, ke la aviadilo surteriĝos en la flughaveno post dek minutoj.* | El piloto anunció que el avión aterrizará en el aeropuerto en diez minutos. | `aviado` | 0,89 |
 | *La ŝoforo de la kamiono ne vidis la buson sur la aŭtovojo.* | El conductor del camión no vio el autobús en la autopista. | `automobilo` | 0,84 |
 
-La frase del coche eléctrico es la más dudosa (un 27 % para `fervojo`), probablemente porque `elektra` aparece casi igual de a menudo en los párrafos de trenes (42) que en los de coches (50).
+La frase del coche eléctrico es la más dudosa (un 27 % para `fervojo`), probablemente porque el lema `elektra` aparece en más párrafos de entrenamiento de `fervojo` (31) que de `automobilo` (26). El cuaderno calcula estas cifras.
 
 ## Conclusiones
 
@@ -236,14 +245,14 @@ La frase del coche eléctrico es la más dudosa (un 27 % para `fervojo`), probab
 
 - **La regularidad del esperanto hace que un sistema de reglas funcione muy bien.** Sin ninguna librería de NLP, el modelo acierta el 95,8 % de las categorías gramaticales y el 97,5 % de los lemas en frases reales del dataset. En todo el corpus solo deja sin reconocer el 1,3 % de las palabras.
 - **La lematización es útil para clasificar.** Reduce el vocabulario de 9.501 palabras distintas a 6.848 lemas (casi un 28 % menos), porque junta formas como `trajno`, `trajnoj`, `trajnon` y `trajnojn`.
-- **Lo difícil son los nombres propios y las excepciones.** Los errores que quedan son nombres propios al inicio de frase, palabras que parecen participios sin serlo (`konstanta`, `senpilota`) y palabras cuya categoría depende del contexto (`ambaŭ`). Algunas reglas son un compromiso: para no estropear nombres como *London* o *Washington*, `Konkordon` no pierde el acusativo.
+- **Lo difícil son los nombres propios y las excepciones.** Lo que más reglas ha necesitado son los nombres propios y las excepciones, como las palabras que parecen participios sin serlo (`konstanta`, `senpilota`). Los errores que quedan en las frases reales son nombres propios al inicio de frase (*Harmon*, *Selden*) y palabras cuya categoría depende del contexto (*ambaŭ*, *povas*), además de un compuesto con mayúscula (*Esperanto-revuo*) que se toma por nombre propio. Algunas reglas son un compromiso: para no estropear nombres como *London* o *Washington*, `Konkordon` no pierde el acusativo.
 - **Las pruebas evitan romper lo que ya funciona.** Las 36 pruebas de casos concretos detienen el cuaderno si alguna falla, así que cada cambio en las reglas se comprueba al momento.
 
 ### Clasificación
 
 - **Los temas se distinguen bien a pesar de compartir vocabulario.** El clasificador consigue un F1 macro de 0,91 en validación cruzada y de 0,934 en test.
-- **Los modelos sencillos funcionan igual de bien.** Las cuatro mejores combinaciones quedan entre 0,91 y 0,92, con diferencias menores que la desviación entre particiones. Por eso se eligió la Regresión Logística por motivos prácticos: probabilidades útiles y pesos que se pueden interpretar. Los lemas que más pesan son los que una persona esperaría (`trajno`, `aviadilo`, `aŭto`...).
-- **Los errores van sobre todo hacia `automobilo`.** Es la clase con menor precisión (0,89): 8 de los 14 errores en test son párrafos de otra clase que el modelo toma por coches. Tiene sentido, porque comparte con las otras dos clases palabras como `motoro`, `veturilo` o `elektra`.
+- **El F1 no basta para elegir modelo.** Las cuatro mejores combinaciones quedan entre 0,91 y 0,92, con diferencias menores que la desviación entre particiones. Se descartó Bag of Words con Naive Bayes porque sus probabilidades se saturan en textos largos: da 1,000 en los 15 textos largos de la comprobación y en las tres páginas web, mientras que la Regresión Logística da 0,944 de media en los textos largos (mínimo 0,838). Se eligió la Regresión Logística también porque sus coeficientes se pueden interpretar. Los lemas que más pesan son los que una persona esperaría (`trajno`, `aviadilo`, `aŭto`...).
+- **Los errores van sobre todo hacia `automobilo`.** Es la clase con menor precisión (0,89): 8 de los 14 errores en test son párrafos de otra clase que el modelo toma por coches. Tiene sentido, porque comparte con las otras dos clases palabras como `motoro`, `veturilo` o `elektra` (este lema aparece en 31 párrafos de entrenamiento de `fervojo` y en 26 de `automobilo`).
 - **Generaliza fuera de la Wikipedia.** Acierta las tres páginas web, incluida una que no es de la Wikipedia, y las cuatro frases escritas por nosotros, que tienen un estilo menos enciclopédico. La confianza baja en páginas largas que mezclan temas: un 67 % en la de Fórmula 1 frente a un 91 % en la del Transiberiano.
 
 ### Limitaciones
